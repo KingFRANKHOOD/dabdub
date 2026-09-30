@@ -2,32 +2,21 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy } from 'passport-custom';
 import { Request } from 'express';
-import { ApiKeyService } from '../services/api-key.service';
-import { UserEntity } from '../../database/entities/user.entity';
+import { AuthService } from '../auth.service';
 
 @Injectable()
 export class ApiKeyStrategy extends PassportStrategy(Strategy, 'api-key') {
-  constructor(private apiKeyService: ApiKeyService) {
+  constructor(private readonly authService: AuthService) {
     super();
   }
 
-  async validate(req: Request): Promise<UserEntity> {
-    const apiKey = req.headers['x-api-key'] as string;
-
-    if (!apiKey) {
-      throw new UnauthorizedException('API Key is required');
+  async validate(req: Request) {
+    const rawKey = req.headers['x-api-key'];
+    if (typeof rawKey !== 'string' || !rawKey.trim()) {
+      throw new UnauthorizedException('Missing API key');
     }
-
-    const user = await this.apiKeyService.validateApiKey(
-      apiKey,
-      req.ip,
-      req.get('user-agent'),
-    );
-
-    if (!user) {
-      throw new UnauthorizedException('Invalid or expired API Key');
-    }
-
-    return user;
+    const merchant = await this.authService.findMerchantByApiKey(rawKey.trim());
+    if (!merchant) throw new UnauthorizedException('Invalid API key');
+    return { merchantId: merchant.id, email: merchant.email, role: merchant.role };
   }
 }

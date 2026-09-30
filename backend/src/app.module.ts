@@ -1,61 +1,36 @@
-import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
-import { ScheduleModule } from '@nestjs/schedule';
-import { ThrottlerModule } from '@nestjs/throttler';
-import { BullModule } from '@nestjs/bull';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { GlobalConfigModule } from './config/config.module';
-import { GlobalConfigService } from './config/global-config.service';
-import { DatabaseModule } from './database/database.module';
-import { CacheModule } from './cache/cache.module';
-import { AnalyticsModule } from './analytics/analytics.module';
-import { LoggerModule } from './logger/logger.module';
-import { SettlementModule } from './settlement/settlement.module';
-import { SwaggerModule as SwaggerDocModule } from './common/swagger/swagger.module';
-import { HealthModule } from './health/health.module';
-import { WebhooksModule } from './webhooks/webhooks.module';
-import { NotificationModule } from './notification/notification.module';
+import { Module, ValidationPipe } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { APP_PIPE } from '@nestjs/core';
 import { AuthModule } from './auth/auth.module';
-import { PublicModule } from './public/public.module';
-import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
+import { WaitlistModule } from './waitlist/waitlist.module';
+import { AdminModule } from './admin/admin.module';
+import { Merchant } from './merchants/entities/merchant.entity';
+import { WaitlistEntry } from './waitlist/entities/waitlist.entity';
 
 @Module({
   imports: [
-    GlobalConfigModule,
-    DatabaseModule,
-    CacheModule,
-    LoggerModule,
-    ScheduleModule.forRoot(),
-    ThrottlerModule.forRoot([
-      {
-        ttl: 60000,
-        limit: 10,
-      },
-    ]),
-    BullModule.forRootAsync({
-      imports: [GlobalConfigModule],
-      useFactory: async (configService: GlobalConfigService) => ({
-        redis: {
-          host: configService.getRedisConfig().host,
-          port: configService.getRedisConfig().port,
-        },
+    ConfigModule.forRoot({ isGlobal: true }),
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (config: ConfigService) => ({
+        type: 'postgres',
+        url: config.get<string>('DATABASE_URL'),
+        entities: [Merchant, WaitlistEntry],
+        synchronize: config.get<string>('NODE_ENV') !== 'production',
+        ssl: config.get<string>('NODE_ENV') === 'production' ? { rejectUnauthorized: false } : false,
       }),
-      inject: [GlobalConfigService],
+      inject: [ConfigService],
     }),
-    NotificationModule,
-    AnalyticsModule,
-    SettlementModule,
     AuthModule,
-    HealthModule,
-    WebhooksModule,
-    SwaggerDocModule,
-    PublicModule,
+    WaitlistModule,
+    AdminModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    {
+      provide: APP_PIPE,
+      useValue: new ValidationPipe({ whitelist: true, transform: true }),
+    },
+  ],
 })
-export class AppModule implements NestModule {
-  configure(consumer: MiddlewareConsumer) {
-    consumer.apply(RequestIdMiddleware).forRoutes('*');
-  }
-}
+export class AppModule {}

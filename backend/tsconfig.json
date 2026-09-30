@@ -1,38 +1,21 @@
 {
   "compilerOptions": {
     "module": "commonjs",
-    "target": "ES2023",
-
     "declaration": true,
     "removeComments": true,
-    "sourceMap": true,
-    "outDir": "./dist",
-
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
-
-    "strict": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
-    "forceConsistentCasingInFileNames": true,
-
+    "allowSyntheticDefaultImports": true,
+    "target": "ES2021",
+    "sourceMap": true,
+    "outDir": "./dist",
     "baseUrl": "./",
-    "paths": {
-      "@config/*": ["src/config/*"],
-      "@modules/*": ["src/modules/*"],
-      "@common/*": ["src/common/*"]
-    },
-
     "incremental": true,
     "skipLibCheck": true,
-
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true
-  },
-  "ts-node": {
-    "transpileOnly": true,
-    "compilerOptions": {
-      "module": "commonjs"
-    }
+    "strictNullChecks": false,
+    "noImplicitAny": false,
+    "strictBindCallApply": false,
+    "forceConsistentCasingInFileNames": false,
+    "noFallthroughCasesInSwitch": false
   }
 }

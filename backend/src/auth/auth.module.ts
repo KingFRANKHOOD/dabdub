@@ -1,47 +1,32 @@
-import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { Global, Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
-import { ConfigService } from '@nestjs/config';
-import { AuthService } from './services/auth.service';
-import { AuthController } from './controllers/auth.controller';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { AuthService } from './auth.service';
+import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
-import { LocalStrategy } from './strategies/local.strategy';
 import { ApiKeyStrategy } from './strategies/api-key.strategy';
-import { UserEntity } from '../database/entities/user.entity';
-import { ApiKeyEntity } from '../database/entities/api-key.entity';
-import { SessionEntity } from '../database/entities/session.entity';
-import { TwoFactorService } from './services/two-factor.service';
-import { PasswordService } from './services/password.service';
-import { SessionService } from './services/session.service';
-import { ApiKeyService } from './services/api-key.service';
+import { JwtAuthGuard } from './guards/jwt.guard';
+import { ApiKeyGuard } from './guards/api-key.guard';
+import { Merchant } from '../merchants/entities/merchant.entity';
 
+@Global()
 @Module({
   imports: [
-    TypeOrmModule.forFeature([UserEntity, ApiKeyEntity, SessionEntity]),
-    PassportModule.register({ defaultStrategy: 'jwt' }),
+    TypeOrmModule.forFeature([Merchant]),
+    PassportModule,
     JwtModule.registerAsync({
-      inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET'),
-        signOptions: {
-          expiresIn: configService.get<string>('JWT_EXPIRATION') || '1h',
-          algorithm: 'HS256',
-        },
+      imports: [ConfigModule],
+      useFactory: (config: ConfigService) => ({
+        secret: config.get<string>('JWT_SECRET', 'fallback-secret'),
+        signOptions: { expiresIn: config.get<string>('JWT_EXPIRES_IN', '7d') },
       }),
+      inject: [ConfigService],
     }),
   ],
   controllers: [AuthController],
-  providers: [
-    AuthService,
-    JwtStrategy,
-    LocalStrategy,
-    ApiKeyStrategy,
-    TwoFactorService,
-    PasswordService,
-    SessionService,
-    ApiKeyService,
-  ],
-  exports: [AuthService, JwtModule, PassportModule],
+  providers: [AuthService, JwtStrategy, ApiKeyStrategy, JwtAuthGuard, ApiKeyGuard],
+  exports: [AuthService, JwtAuthGuard, ApiKeyGuard],
 })
 export class AuthModule {}

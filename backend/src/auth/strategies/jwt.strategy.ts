@@ -4,40 +4,25 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { UserEntity } from '../../database/entities/user.entity';
-
-export interface JwtPayload {
-  sub: string;
-  email: string;
-  role: string;
-  iat: number;
-  exp: number;
-}
+import { Merchant } from '../../merchants/entities/merchant.entity';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
-    configService: ConfigService,
-    @InjectRepository(UserEntity)
-    private readonly userRepository: Repository<UserEntity>,
+    config: ConfigService,
+    @InjectRepository(Merchant)
+    private readonly merchantsRepo: Repository<Merchant>,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_SECRET'),
-      algorithms: ['HS256'],
+      secretOrKey: config.get<string>('JWT_SECRET', 'fallback-secret'),
     });
   }
 
-  async validate(payload: JwtPayload): Promise<UserEntity> {
-    const user = await this.userRepository.findOne({
-      where: { id: payload.sub, isActive: true },
-    });
-
-    if (!user) {
-      throw new UnauthorizedException('User not found or inactive');
-    }
-
-    return user;
+  async validate(payload: { sub: string; email: string; role: string }) {
+    const merchant = await this.merchantsRepo.findOne({ where: { id: payload.sub } });
+    if (!merchant) throw new UnauthorizedException('Merchant not found');
+    return { merchantId: merchant.id, email: merchant.email, role: merchant.role };
   }
 }
